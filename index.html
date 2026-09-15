@@ -359,10 +359,11 @@
     <section class="canvas">
       <header class="topbar">
         <div class="eyebrow">Interactive Algebra Canvas</div>
-        <div>
+        <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px;">
           <button class="reset-btn" type="button" id="hintBtn">💡 Hint</button>
-          <button class="reset-btn" type="button" id="resetBtn">↻ Reset</button>
+          <button class="reset-btn" type="button" id="resetBtn">↻ Reset Step</button>
           <button class="reset-btn" type="button" id="nextBtn">⏭ Next</button>
+          <button class="reset-btn" type="button" id="startOverBtn" style="color: #ff8b96;">⏪ Start Over</button>
         </div>
       </header>
 
@@ -467,13 +468,17 @@
       hint: `<strong>💡 Strategy suggestion:</strong><br />• ${p.h}`
     }));
 
-    let currentProblemIndex = 0;
+    let currentProblemIndex = parseInt(localStorage.getItem('algebra_currentProblemIndex')) || 0;
+    if (currentProblemIndex >= problems.length) {
+      currentProblemIndex = 0;
+    }
     let targetEquation = problems[currentProblemIndex].equation;
 
     const stepsEl = document.getElementById('steps');
     const addStepBtn = document.getElementById('addStepBtn');
     const resetBtn = document.getElementById('resetBtn');
     const nextBtn = document.getElementById('nextBtn');
+    const startOverBtn = document.getElementById('startOverBtn');
     const hintBtn = document.getElementById('hintBtn');
     const hintTip = document.getElementById('hintTip');
     const scratchInput = document.getElementById('scratchInput');
@@ -738,6 +743,7 @@
 
     function loadProblem(index) {
       currentProblemIndex = index;
+      localStorage.setItem('algebra_currentProblemIndex', currentProblemIndex);
       targetEquation = problems[currentProblemIndex].equation;
       hintTip.innerHTML = problems[currentProblemIndex].hint;
       hintTip.style.display = 'none';
@@ -844,7 +850,14 @@
       }
     });
 
-    loadProblem(0);
+    startOverBtn.addEventListener('click', () => {
+      if (confirm('Are you sure you want to start over from the first problem?')) {
+        localStorage.removeItem('algebra_currentProblemIndex');
+        loadProblem(0);
+      }
+    });
+
+    loadProblem(currentProblemIndex);
   </script>
 </body>
 </html>
