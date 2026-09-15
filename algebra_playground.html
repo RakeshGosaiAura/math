@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#24262d" />
+  <title>Interactive Algebra Canvas</title>
+  <style>
+    :root {
+      --page: #1f2127;
+      --panel: #282b32;
+      --panel-2: #30333b;
+      --field: #363941;
+      --text: #f4f6fb;
+      --muted: #9ca3af;
+      --line: #3f434d;
+      --green: #7bd88f;
+      --green-bg: rgba(89, 181, 108, 0.12);
+      --red: #ff8b96;
+      --red-bg: rgba(255, 92, 108, 0.10);
+      --blue: #3f7cff;
+      --blue-2: #6092ff;
+      --yellow: #f4c95d;
+      --radius: 12px;
+      --touch: 44px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { color-scheme: dark; }
+
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      background: #17191e;
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input, textarea { font: inherit; }
+
+    button { -webkit-tap-highlight-color: transparent; }
+
+    .app-shell {
+      width: 100%;
+      max-width: 760px;
+      min-height: 100dvh;
+      margin: 0 auto;
+      background: var(--page);
+      border-left: 1px solid rgba(255,255,255,.05);
+      border-right: 1px solid rgba(255,255,255,.05);
+    }
+
+    .canvas {
+      padding: max(14px, env(safe-area-inset-top)) 14px 20px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      color: #72a2ff;
+      background: rgba(63,124,255,.12);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    .reset-btn,
+    .icon-btn,
+    .remove-btn {
+      border: 0;
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .reset-btn {
+      min-height: var(--touch);
+      padding: 0 6px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .steps { display: grid; gap: 10px; }
+
+    .step-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      padding: 10px;
+      transition: border-color .18s ease, background .18s ease;
+    }
+
+    .step-card.passed {
+      border-color: rgba(123,216,143,.55);
+      background: linear-gradient(180deg, rgba(123,216,143,.04), rgba(123,216,143,.015)), var(--panel);
+    }
+
+    .step-card.failed {
+      border-color: rgba(255,139,150,.65);
+      background: linear-gradient(180deg, var(--red-bg), transparent), var(--panel);
+    }
+
+    .step-line {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .step-label {
+      color: #b8beca;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .equation-wrap {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 34px;
+      align-items: center;
+      min-width: 0;
+      border-radius: 8px;
+      background: var(--field);
+    }
+
+    .equation {
+      width: 100%;
+      min-width: 0;
+      height: 38px;
+      border: 0;
+      outline: 0;
+      padding: 0 10px;
+      color: var(--text);
+      background: transparent;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 15px;
+      font-weight: 700;
+      caret-color: #fff;
+    }
+
+    .equation::placeholder { color: #777e8a; font-weight: 500; }
+
+    .equation:focus { box-shadow: inset 0 0 0 1px rgba(96,146,255,.9); border-radius: 8px 0 0 8px; }
+
+    .equation[readonly] { opacity: .96; cursor: default; }
+
+    .icon-btn {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 38px;
+      border-radius: 0 8px 8px 0;
+      font-size: 14px;
+    }
+
+    .icon-btn:active { background: rgba(255,255,255,.06); }
+
+    .given {
+      color: var(--green);
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .eval-btn {
+      min-height: 32px;
+      border: 0;
+      border-radius: 999px;
+      padding: 0 11px;
+      color: #fff;
+      background: var(--blue);
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .eval-btn:active { background: var(--blue-2); transform: translateY(1px); }
+
+    .remove-btn {
+      min-height: 34px;
+      padding: 0 6px;
+      font-size: 11px;
+    }
+
+    .status {
+      min-height: 17px;
+      margin: 5px 0 0 40px;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .status.success { color: var(--green); }
+    .status.error { color: var(--red); }
+
+    .add-btn {
+      min-height: 40px;
+      margin-top: 12px;
+      border: 0;
+      border-radius: 999px;
+      padding: 0 14px;
+      color: #fff;
+      background: var(--blue);
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .lower-panel {
+      border-top: 1px solid var(--line);
+      padding: 18px 14px max(18px, env(safe-area-inset-bottom));
+      background: #202228;
+    }
+
+    .section + .section {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+
+    .section-title {
+      margin: 0 0 7px;
+      color: #b8beca;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .guide {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .tip {
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #24272d;
+      color: #c7cbd4;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .tip strong { color: #f5dd94; }
+
+    .scratch-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .scratch-input {
+      width: 100%;
+      min-width: 0;
+      height: 40px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      outline: 0;
+      padding: 0 10px;
+      color: var(--text);
+      background: var(--field);
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .scratch-input:focus { border-color: var(--blue-2); }
+
+    .scratch-eval {
+      min-width: 54px;
+      min-height: 40px;
+      border: 0;
+      border-radius: 8px;
+      color: #23262d;
+      background: #e6e9ef;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .scratch-result {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 38px;
+      margin-top: 9px;
+      padding: 8px 10px;
+      border: 1px solid rgba(123,216,143,.35);
+      border-radius: 8px;
+      color: var(--green);
+      background: var(--green-bg);
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .keyboard-note {
+      margin: 8px 0 0;
+      color: #7f8794;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 520px) {
+      .app-shell {
+        max-width: none;
+        border-left: 0;
+        border-right: 0;
+      }
+
+      .canvas { padding-left: 10px; padding-right: 10px; }
+      .lower-panel { padding-left: 10px; padding-right: 10px; }
+      .step-card { padding: 9px 8px; }
+      .step-line { grid-template-columns: 42px minmax(0, 1fr) auto; gap: 6px; }
+      .equation { font-size: 14px; padding: 0 8px; }
+      .status { margin-left: 48px; }
+      .remove-btn { padding: 0 3px; font-size: 10px; }
+    }
+
+    @media (max-width: 390px) {
+      .step-line { grid-template-columns: 38px minmax(0, 1fr); }
+      .actions { grid-column: 2; justify-content: flex-end; margin-top: 2px; }
+      .given { grid-column: 2; justify-self: end; }
+      .status { margin-left: 44px; }
+      .eval-btn { min-height: 34px; }
+    }
+
+    @media (min-width: 761px) {
+      body { padding: 18px; }
+      .app-shell { min-height: auto; border-radius: 16px; overflow: hidden; box-shadow: 0 18px 60px rgba(0,0,0,.28); }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <section class="canvas">
+      <header class="topbar">
+        <div class="eyebrow">Interactive Algebra Canvas</div>
+        <div>
+          <button class="reset-btn" type="button" id="hintBtn">💡 Hint</button>
+          <button class="reset-btn" type="button" id="resetBtn">↻ Reset</button>
+          <button class="reset-btn" type="button" id="nextBtn">⏭ Next</button>
+        </div>
+      </header>
+
+      <div class="steps" id="steps">
+      </div>
+
+      <button class="add-btn" type="button" id="addStepBtn">＋ Add New Step</button>
+    </section>
+
+    <section class="lower-panel">
+      <div class="section">
+        <h2 class="section-title">Goal &amp; Goal Guide</h2>
+        <p class="guide">Isolate the variable <strong>x</strong> step-by-step. Add a new step, type the next equivalent equation, then tap <strong>Eval</strong>.</p>
+        <div class="tip" id="hintTip" style="display: none;">
+        </div>
+      </div>
+
+      <div class="section">
+        <h2 class="section-title">Arithmetic Scratchpad</h2>
+        <div class="scratch-row">
+          <input
+            id="scratchInput"
+            class="scratch-input"
+            type="text"
+            inputmode="text"
+            enterkeyhint="done"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            placeholder="19 - 7"
+            aria-label="Scratch calculation"
+          />
+          <button class="scratch-eval" type="button" id="scratchEvalBtn">Eval</button>
+        </div>
+        <div class="scratch-result" id="scratchResult" hidden>
+          <span id="scratchText"></span>
+          <span>Apply</span>
+        </div>
+        <p class="keyboard-note">No on-screen number pad is included. Tap any equation or scratch field and use your phone's normal keyboard.</p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const rawProblems = [
+      // Level 1: Warmup
+      { eq: '3x + 7 = 19', h: 'Subtract 7, then divide by 3.' },
+      { eq: '5x - 8 = 12', h: 'Add 8 to both sides, then divide by 5.' },
+      { eq: '2 * (x + 4) = 14', h: 'Divide by 2, or distribute the 2 first.' },
+      { eq: '7x = 3x + 20', h: 'Subtract 3x from both sides to group the x terms.' },
+      { eq: '4 * (x - 2) + 3 = 15', h: 'Subtract 3, then divide by 4, then add 2.' },
+      { eq: 'x / 2 + 5 = 11', h: 'Subtract 5, then multiply both sides by 2.' },
+      
+      // Level 2: Variables on both sides & grouping
+      { eq: '5x - 4 = 2x + 11', h: 'Subtract 2x from both sides, and add 4 to both sides.' },
+      { eq: '3 * (x - 1) = 2 * (x + 3)', h: 'Distribute on both sides: <code>3x - 3 = 2x + 6</code>, then isolate x.' },
+      { eq: '8x - (3x + 2) = 13', h: 'Distribute the negative sign: <code>8x - 3x - 2 = 13</code>.' },
+      { eq: '2 * (3x - 4) + 5 = 4 * (x + 1)', h: 'Distribute: <code>6x - 8 + 5 = 4x + 4</code>. Combine constants.' },
+      { eq: '7 - 2x = 3x - 13', h: 'Add 2x to both sides to keep x positive, add 13 to both sides.' },
+      
+      // Level 3: Fractions
+      { eq: '(x + 3) / 4 = 5', h: 'Multiply both sides by 4 to clear the fraction.' },
+      { eq: '(2x - 1) / 3 = 7', h: 'Multiply both sides by 3, then solve for x.' },
+      { eq: 'x / 3 + x / 4 = 7', h: 'Find a common denominator (12) or multiply the whole equation by 12.' },
+      { eq: '(3x + 2) / 5 = (x - 1) / 2', h: 'Cross-multiply: <code>2 * (3x + 2) = 5 * (x - 1)</code>.' },
+      { eq: '2x / 5 - 3 = 1', h: 'Add 3 to both sides, then multiply by 5/2.' },
+      
+      // Level 4: Complex Distribution & Like Terms
+      { eq: '4 * (2x - 5) - 3 * (x + 2) = 14', h: 'Distribute carefully: <code>8x - 20 - 3x - 6 = 14</code>. Combine like terms.' },
+      { eq: '5 - 2 * (3x - 4) = 7x + 1', h: 'Distribute the -2: <code>5 - 6x + 8 = 7x + 1</code>.' },
+      { eq: '3 * (x + 2) - x = 2 * (x + 3)', h: 'Distribute and combine. Notice anything interesting? It might be an identity (x can be anything)!' },
+      { eq: '0.5x + 1.2 = 3.7', h: 'Subtract 1.2, then divide by 0.5 (or multiply by 2).' },
+      { eq: '0.2 * (x - 5) = 0.4 * (x + 1)', h: 'Multiply everything by 10 to clear decimals: <code>2 * (x - 5) = 4 * (x + 1)</code>.' },
+
+      // Level 5: Hardcore Linear
+      { eq: '(x - 2) / 3 - (x + 1) / 4 = 1', h: 'Multiply the entire equation by the LCM (12) to clear denominators.' },
+      { eq: '2 * (x - (3x + 1)) = 4 * (x + 2) - 10', h: 'Work from the inside out: simplify the inner parentheses first.' },
+      { eq: '5 * (2x - 3) + 4x = 3 * (x + 5) - 8', h: 'Distribute everything, combine all x terms on one side, constants on the other.' },
+      { eq: '((2x + 1) / 3) + x = 11', h: 'Multiply the entire equation by 3: <code>(2x + 1) + 3x = 33</code>.' },
+      { eq: '3 * (x - 1) / 2 + 4 = x * 2 - 1', h: 'Multiply by 2: <code>3 * (x - 1) + 8 = 4x - 2</code>.' },
+      { eq: '7 * (2 - x) - 3 * (x + 4) = 5 * (1 - 2x)', h: 'Distribute: <code>14 - 7x - 3x - 12 = 5 - 10x</code>. Then combine like terms.' },
+      { eq: '(5x - 1) / 4 - (2x + 3) / 6 = 2', h: 'Multiply by the LCM of 4 and 6, which is 12.' },
+      { eq: 'x - 0.2x - 0.5x = 12', h: 'Combine x terms: <code>0.3x = 12</code>. Multiply by 10/3.' },
+      { eq: '3 / 4 * (x + 8) = 1 / 2 * (x - 4)', h: 'Multiply both sides by 4 to clear fractions: <code>3 * (x + 8) = 2 * (x - 4)</code>.' },
+      { eq: 'x / 2 + x / 3 + x / 4 = 26', h: 'Multiply both sides by the LCM of 2, 3, and 4, which is 12.' },
+      
+      // Level 6: Einstein Level (Extreme Linear)
+      { eq: '(3^2 * x - (2 * (x - 4))) / 5 = (x + 2^3) / 2', h: 'Simplify the exponents first: 3^2 = 9 and 2^3 = 8.' },
+      { eq: 'x / 2 - (2x - 3) / 3 + (3x - 4) / 4 - (4x - 5) / 5 = 1', h: 'Find the LCM of 2, 3, 4, 5 (which is 60) and multiply the entire equation by it.' },
+      { eq: '((x - 1) / 2 + (x - 2) / 3) / 4 = (x - 3) / 5', h: 'Clear the outer denominators first by multiplying by 20.' },
+      { eq: '1 / (1 / 2) * (x - 3) = 2^4 * x - 5 * (3x - 1)', h: '1 / (1/2) is 2, and 2^4 is 16. Rewrite and simplify.' },
+      { eq: '(2x + 1) / 0.5 - (3x - 2) / 0.25 = x + 10', h: 'Dividing by 0.5 is multiplying by 2. Dividing by 0.25 is multiplying by 4.' },
+      { eq: 'x - (2x - (3x - (4x - 5))) = 10', h: 'Work carefully from the innermost parentheses outward, flipping signs as you go.' },
+      { eq: '2 * (3 * (4 * (x - 1) - 2) - 3) = 5x + 1', h: 'Work from the inner parentheses out: 4x - 4 - 2 = 4x - 6.' },
+      { eq: '(x + 1) / 2 + (x + 2) / 3 + (x + 3) / 4 = 16', h: 'Multiply everything by 12 to eliminate all fractions.' },
+      { eq: '5 * x / 6 - 3 * x / 8 + x / 12 = 13 / 24', h: 'Multiply by the LCM of the denominators (24).' },
+      { eq: '100 * (0.02x - 0.05) - 1000 * (0.001x + 0.002) = 3', h: 'Distribute to clear the decimals: <code>2x - 5 - (1x + 2) = 3</code>.' }
+    ];
+
+    const problems = rawProblems.map(p => ({
+      equation: p.eq,
+      hint: `<strong>💡 Strategy suggestion:</strong><br />• ${p.h}`
+    }));
+
+    let currentProblemIndex = 0;
+    let targetEquation = problems[currentProblemIndex].equation;
+
+    const stepsEl = document.getElementById('steps');
+    const addStepBtn = document.getElementById('addStepBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const hintBtn = document.getElementById('hintBtn');
+    const hintTip = document.getElementById('hintTip');
+    const scratchInput = document.getElementById('scratchInput');
+    const scratchEvalBtn = document.getElementById('scratchEvalBtn');
+    const scratchResult = document.getElementById('scratchResult');
+    const scratchText = document.getElementById('scratchText');
+
+    let nextId = 1;
+
+    function normalizeExpression(expression) {
+      return expression
+        .trim()
+        .replaceAll('×', '*')
+        .replaceAll('÷', '/')
+        .replaceAll('−', '-')
+        .replaceAll('²', '^2')
+        .replaceAll('³', '^3');
+    }
+
+    function evaluateExpression(expression, xValue = 0) {
+      const source = normalizeExpression(expression).replace(/\s+/g, '');
+      if (!source) throw new Error('Expression is empty.');
+
+      const raw = [];
+      let i = 0;
+      while (i < source.length) {
+        const ch = source[i];
+        if (/\d|\./.test(ch)) {
+          const match = source.slice(i).match(/^(?:\d+(?:\.\d*)?|\.\d+)/);
+          if (!match) throw new Error('Invalid number.');
+          raw.push({ type: 'number', value: Number(match[0]) });
+          i += match[0].length;
+          continue;
+        }
+        if (ch === 'x' || ch === 'X') { raw.push({ type: 'x' }); i++; continue; }
+        if ('+-*/^()'.includes(ch)) { raw.push({ type: ch }); i++; continue; }
+        throw new Error(`Unsupported symbol '${ch}'. Use x, numbers, +, -, *, /, ^ and parentheses.`);
+      }
+
+      const tokens = [];
+      const endsValue = token => token && (token.type === 'number' || token.type === 'x' || token.type === ')');
+      const startsValue = token => token && (token.type === 'number' || token.type === 'x' || token.type === '(');
+      for (const token of raw) {
+        if (endsValue(tokens[tokens.length - 1]) && startsValue(token)) tokens.push({ type: '*' });
+        tokens.push(token);
+      }
+
+      let pos = 0;
+      const peek = type => tokens[pos]?.type === type;
+      const take = type => {
+        if (!peek(type)) throw new Error(`Expected '${type}'.`);
+        return tokens[pos++];
+      };
+
+      function parseExpression() {
+        let value = parseTerm();
+        while (peek('+') || peek('-')) {
+          if (peek('+')) { take('+'); value += parseTerm(); }
+          else { take('-'); value -= parseTerm(); }
+        }
+        return value;
+      }
+
+      function parseTerm() {
+        let value = parsePower();
+        while (peek('*') || peek('/')) {
+          if (peek('*')) { take('*'); value *= parsePower(); }
+          else {
+            take('/');
+            const divisor = parsePower();
+            if (Math.abs(divisor) < 1e-14) throw new Error('Division by zero.');
+            value /= divisor;
+          }
+        }
+        return value;
+      }
+
+      function parsePower() {
+        let value = parseUnary();
+        if (peek('^')) {
+          take('^');
+          value = Math.pow(value, parsePower());
+        }
+        return value;
+      }
+
+      function parseUnary() {
+        if (peek('+')) { take('+'); return parseUnary(); }
+        if (peek('-')) { take('-'); return -parseUnary(); }
+        return parsePrimary();
+      }
+
+      function parsePrimary() {
+        if (peek('number')) return take('number').value;
+        if (peek('x')) { take('x'); return Number(xValue); }
+        if (peek('(')) {
+          take('(');
+          const value = parseExpression();
+          take(')');
+          return value;
+        }
+        throw new Error('Incomplete expression.');
+      }
+
+      const result = parseExpression();
+      if (pos !== tokens.length) throw new Error('Unexpected extra input.');
+      if (!Number.isFinite(result)) throw new Error('Expression produced a non-finite value.');
+      return result;
+    }
+
+    function splitEquation(equation) {
+      const parts = equation.split('=');
+      if (parts.length !== 2 || !parts[0].trim() || !parts[1].trim()) {
+        throw new Error("Use exactly one '=' sign.");
+      }
+      return parts.map(normalizeExpression);
+    }
+
+    function residualAt(equation, x) {
+      const [lhs, rhs] = splitEquation(equation);
+      const left = evaluateExpression(lhs, x);
+      const right = evaluateExpression(rhs, x);
+      const value = Number(left) - Number(right);
+      if (!Number.isFinite(value)) throw new Error('Equation produced a non-finite value.');
+      return value;
+    }
+
+    function linearSignature(equation) {
+      const f0 = residualAt(equation, 0);
+      const f1 = residualAt(equation, 1);
+      const a = f1 - f0;
+      const b = f0;
+      const tolerance = 1e-8;
+
+      for (const x of [-3, -1, 2, 5, 10]) {
+        const actual = residualAt(equation, x);
+        const expected = a * x + b;
+        if (Math.abs(actual - expected) > 1e-7 * Math.max(1, Math.abs(actual), Math.abs(expected))) {
+          throw new Error('For this activity, keep each step as an equivalent linear equation in x.');
+        }
+      }
+
+      if (Math.abs(a) < tolerance && Math.abs(b) < tolerance) return { type: 'identity' };
+      if (Math.abs(a) < tolerance) return { type: 'none' };
+      return { type: 'single', solution: -b / a };
+    }
+
+    function equationsEquivalent(a, b) {
+      const sigA = linearSignature(a);
+      const sigB = linearSignature(b);
+      if (sigA.type !== sigB.type) return false;
+      if (sigA.type !== 'single') return true;
+      return Math.abs(sigA.solution - sigB.solution) <= 1e-7 * Math.max(1, Math.abs(sigA.solution), Math.abs(sigB.solution));
+    }
+
+    function addStep(prefill) {
+      if (prefill === undefined) {
+        const lastInput = stepsEl.querySelector('.step-card:last-child .equation');
+        prefill = lastInput ? lastInput.value : targetEquation;
+      }
+
+      const id = nextId++;
+      const card = document.createElement('article');
+      card.className = 'step-card';
+      card.dataset.id = id;
+      card.innerHTML = `
+        <div class="step-line">
+          <span class="step-label">Step:</span>
+          <div class="equation-wrap">
+            <input
+              class="equation"
+              type="text"
+              inputmode="text"
+              enterkeyhint="done"
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              placeholder="Type next equation"
+              aria-label="Algebra step"
+              value="${escapeHtml(prefill)}"
+            />
+            <button class="icon-btn copy-step" type="button" aria-label="Copy this equation">⧉</button>
+          </div>
+          <div class="actions">
+            <button class="eval-btn" type="button">▶ Eval</button>
+            <button class="remove-btn" type="button">Remove</button>
+          </div>
+        </div>
+        <div class="status"></div>
+      `;
+
+      const input = card.querySelector('.equation');
+      const evalBtn = card.querySelector('.eval-btn');
+      const removeBtn = card.querySelector('.remove-btn');
+      const copyBtn = card.querySelector('.copy-step');
+
+      input.addEventListener('input', () => clearState(card));
+      input.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          evaluateCard(card);
+          input.blur();
+        }
+      });
+      evalBtn.addEventListener('click', () => evaluateCard(card));
+      removeBtn.addEventListener('click', () => {
+        card.remove();
+        renumberSteps();
+      });
+      copyBtn.addEventListener('click', () => copyText(input.value, copyBtn));
+
+      stepsEl.appendChild(card);
+      renumberSteps();
+      requestAnimationFrame(() => input.focus({ preventScroll: false }));
+    }
+
+    function evaluateCard(card) {
+      const input = card.querySelector('.equation');
+      const status = card.querySelector('.status');
+      const value = input.value.trim();
+
+      if (!value) {
+        showStatus(card, status, false, 'Enter an equation first.');
+        return;
+      }
+
+      try {
+        if (equationsEquivalent(targetEquation, value)) {
+          const sig = linearSignature(value);
+          const solved = /^\s*x\s*=|=\s*x\s*$/i.test(value);
+          const msg = solved && sig.type === 'single'
+            ? `✓ Excellent! Solution x = ${formatNumber(sig.solution)} is correct.`
+            : '✓ Great job! This equation is equivalent to the original.';
+          showStatus(card, status, true, msg);
+        } else {
+          showStatus(card, status, false, '✕ This changes the solution. Check the operation on both sides.');
+        }
+      } catch (error) {
+        showStatus(card, status, false, `✕ ${error.message}`);
+      }
+    }
+
+    function showStatus(card, status, passed, message) {
+      card.classList.toggle('passed', passed);
+      card.classList.toggle('failed', !passed);
+      status.className = `status ${passed ? 'success' : 'error'}`;
+      status.textContent = message;
+    }
+
+    function clearState(card) {
+      card.classList.remove('passed', 'failed');
+      const status = card.querySelector('.status');
+      status.className = 'status';
+      status.textContent = '';
+    }
+
+    function renumberSteps() {
+      [...stepsEl.querySelectorAll('.step-card:not([data-given="true"])')].forEach((card, index) => {
+        card.querySelector('.step-label').textContent = `Step ${index + 1}:`;
+      });
+    }
+
+    function loadProblem(index) {
+      currentProblemIndex = index;
+      targetEquation = problems[currentProblemIndex].equation;
+      hintTip.innerHTML = problems[currentProblemIndex].hint;
+      hintTip.style.display = 'none';
+
+      stepsEl.innerHTML = '';
+      nextId = 1;
+      scratchInput.value = '';
+      scratchResult.hidden = true;
+
+      // Create given step
+      const givenCard = document.createElement('article');
+      givenCard.className = 'step-card passed';
+      givenCard.dataset.given = 'true';
+      givenCard.innerHTML = `
+        <div class="step-line">
+          <span class="step-label">Step 0:</span>
+          <div class="equation-wrap">
+            <input
+              class="equation"
+              value="${escapeHtml(targetEquation)}"
+              aria-label="Given equation"
+              readonly
+            />
+            <button class="icon-btn copy-step" type="button" data-copy="${escapeHtml(targetEquation)}" aria-label="Copy given equation">⧉</button>
+          </div>
+          <span class="given">✓ Given</span>
+        </div>
+        <div class="status success">✓ Start equation</div>
+      `;
+      const copyBtn = givenCard.querySelector('.copy-step');
+      copyBtn.addEventListener('click', () => copyText(copyBtn.dataset.copy, copyBtn));
+      stepsEl.appendChild(givenCard);
+
+      addStep();
+    }
+
+    function resetCanvas() {
+      loadProblem(currentProblemIndex);
+    }
+
+    function evaluateScratch() {
+      const raw = scratchInput.value.trim();
+      if (!raw) {
+        scratchResult.hidden = true;
+        return;
+      }
+
+      try {
+        const expression = normalizeExpression(raw);
+        if (expression.includes('=')) throw new Error('Use a calculation such as 19 - 7.');
+        const result = evaluateExpression(expression);
+        if (typeof result === 'number' && Number.isFinite(result)) {
+          scratchText.textContent = `Result: ${formatNumber(result)}`;
+        } else {
+          scratchText.textContent = `Result: ${String(result)}`;
+        }
+        scratchResult.hidden = false;
+      } catch (error) {
+        scratchText.textContent = 'Could not evaluate that calculation.';
+        scratchResult.hidden = false;
+      }
+    }
+
+    async function copyText(text, button) {
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        const old = button.textContent;
+        button.textContent = '✓';
+        setTimeout(() => (button.textContent = old), 800);
+      } catch {
+        button.textContent = '!';
+        setTimeout(() => (button.textContent = '⧉'), 800);
+      }
+    }
+
+    function formatNumber(value) {
+      return Number.isInteger(value) ? String(value) : Number(value.toFixed(8)).toString();
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    addStepBtn.addEventListener('click', () => addStep());
+    resetBtn.addEventListener('click', resetCanvas);
+    nextBtn.addEventListener('click', () => {
+      loadProblem((currentProblemIndex + 1) % problems.length);
+    });
+    hintBtn.addEventListener('click', () => {
+      hintTip.style.display = hintTip.style.display === 'none' ? 'block' : 'none';
+    });
+    scratchEvalBtn.addEventListener('click', evaluateScratch);
+    scratchInput.addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        evaluateScratch();
+        scratchInput.blur();
+      }
+    });
+
+    loadProblem(0);
+  </script>
+</body>
+</html>
